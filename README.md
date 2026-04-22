@@ -16,8 +16,11 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 git clone https://github.com/aherbert/omero-dnai.git
 # Change into the project directory
 cd omero-dnai
-# Create and activate virtual environment
+# Create the virtual environment
 uv sync
+
+# Activate the virtual environment.
+# This avoids using the 'uv run' prefix for all executed programs.
 source .venv/bin/activate
 ```
 
@@ -33,10 +36,10 @@ or dataset ID:
 
 ```
 # Show options
-uv run main.py -h
+uv run ./main.py -h
 
 # Analyse
-uv run main.py ID [ID ...]
+uv run ./main.py ID [ID ...]
 ```
 
 Connection to OMERO uses the [OMERO.py](https://github.com/ome/omero-py)
@@ -68,3 +71,12 @@ configured using environment variables.
 
 The `DNAi` library uses some functionality of the [Streamlit](https://streamlit.io/)
 which may log warnings. These can typically be ignored.
+
+The `uv` environment has installed `DNAi`. This allows the application to be run
+using:
+
+```
+uv run DNAI
+```
+
+Images can then be imported and analysed as per the `DNAi` documentation.
