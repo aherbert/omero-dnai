@@ -69,7 +69,7 @@ The `DNAi` library will connect to [Hugging Face](https://huggingface.co/) to
 download models. This may log warnings if not using an authenticated login
 configured using environment variables.
 
-The `DNAi` library uses some functionality of the [Streamlit](https://streamlit.io/)
+The `DNAi` library uses some functionality of [Streamlit](https://streamlit.io/)
 which may log warnings. These can typically be ignored.
 
 The `uv` environment has installed `DNAi`. This allows the application to be run
