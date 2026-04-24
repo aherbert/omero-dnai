@@ -2,14 +2,13 @@
 """Analyse OMERO images using DNAi."""
 
 import argparse
+from webbrowser import get
 
 from dnafiber.model.models_zoo import MODELS_ZOO
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Analyse OMERO images using DNAi."
-    )
+    parser = argparse.ArgumentParser(description="Analyse OMERO images using DNAi.")
     _ = parser.add_argument(
         "id",
         type=int,
@@ -77,26 +76,32 @@ def main():
             exit(1)
     print(f"Results file: {fn}")
 
-    import numpy as np
-    import torch
-    import pandas as pd
+    import logging
     import time
-    from omero.cli import cli_login
-    from omero.gateway import BlitzGateway
+
+    import numpy as np
+    import pandas as pd
 
     # Workaround for streamlit logger warnings:
     # https://discuss.streamlit.io/t/warning-for-missing-scriptruncontext/83893/16
     import streamlit
-    import logging
+    import torch
+    from omero.cli import cli_login
+    from omero.gateway import BlitzGateway
+
     for name, l in logging.root.manager.loggerDict.items():
         if "streamlit" in name:
             l.disabled = True
 
     # Run DNAi on the image
+    from dnafiber.data.preprocess import preprocess
     from dnafiber.data.readers import format_raw_image
     from dnafiber.deployment import run_one_file
-    from dnafiber.model.utils import get_ensemble_models, get_error_detection_model, _get_model
-    from dnafiber.data.preprocess import preprocess
+    from dnafiber.model.utils import (
+        _get_model,
+        get_ensemble_models,
+        get_error_detection_model,
+    )
 
     if args.device:
         device = torch.device(args.device)
@@ -148,14 +153,18 @@ def main():
         conn.SERVICE_OPTS.setOmeroGroup(-1)
 
         # Process all images
-        for input_id in args.id:
-            for image_id in get_image_ids(conn, input_id):
+        for i, input_id in enumerate(args.id):
+            print(f"Input ID [{i + 1}/{len(args.id)}] {input_id}")
+            image_ids = get_image_ids(conn, input_id)
+            for j, image_id in enumerate(image_ids):
                 image = conn.getObject("Image", image_id)
 
                 sizeZ = image.getSizeZ()
                 sizeC = image.getSizeC()
                 sizeT = image.getSizeT()
-                print(f"Image {image_id}: z={sizeZ}, c={sizeC}, t={sizeT}")
+                print(
+                    f"Image [{j + 1}/{len(image_ids)}] {image_id}: z={sizeZ}, c={sizeC}, t={sizeT}"
+                )
 
                 if sizeZ * sizeT != 1 or sizeC == 1:
                     print(f"Warning: Require 2D image with channels")
@@ -167,7 +176,9 @@ def main():
                 pixel_size = image.getPixelSizeX("MICROMETER").getValue()
 
                 image_name = image.getName()
-                print(f"Image {image_id} [{image_name}]: shape={img.shape}, pixel_size={pixel_size}")
+                print(
+                    f"Image [{j + 1}/{len(image_ids)}] {image_id} [{image_name}]: shape={img.shape}, pixel_size={pixel_size}"
+                )
 
                 img = format_raw_image(img)
                 img = preprocess(img, pixel_size=pixel_size)
@@ -185,7 +196,9 @@ def main():
 
                 # Filter and export
                 fibers = fibers.valid_copy()  # Keep only classifiable fibers
-                fibers = fibers.filter_errors(threshold=args.threshold)  # Remove likely false positives
+                fibers = fibers.filter_errors(
+                    threshold=args.threshold
+                )  # Remove likely false positives
 
                 df = fibers.to_df(pixel_size=pixel_size, img_name=image_name)
                 df["Image ID"] = image_id
