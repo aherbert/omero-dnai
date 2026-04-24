@@ -58,6 +58,12 @@ def main():
         action=argparse.BooleanOptionalAction,
         help="Overwrite existing results (default: %(default)s)",
     )
+    _ = parser.add_argument(
+        "--partial",
+        type=int,
+        default=10,
+        help="Save partial results every N images (default: %(default)s)",
+    )
     args = parser.parse_args()
 
     import os
@@ -89,9 +95,9 @@ def main():
     from omero.cli import cli_login
     from omero.gateway import BlitzGateway
 
-    for name, l in logging.root.manager.loggerDict.items():
-        if "streamlit" in name:
-            l.disabled = True
+    for key, value in logging.root.manager.loggerDict.items():
+        if "streamlit" in key:
+            value.disabled = True
 
     # Run DNAi on the image
     from dnafiber.data.preprocess import preprocess
@@ -119,7 +125,7 @@ def main():
     model = MODELS_ZOO.get(args.model)
     if model is None:
         model = get_ensemble_models()
-        print(f"Using model=ensemble")
+        print("Using model=ensemble")
     else:
         model = _get_model(model)
         print(f"Using model={args.model}")
@@ -145,7 +151,7 @@ def main():
 
     dfs = []
 
-    print(f"Connecting to OMERO")
+    print("Connecting to OMERO")
     with cli_login() as cli:
         start = time.time()
         conn = BlitzGateway(client_obj=cli._client)
@@ -153,6 +159,7 @@ def main():
         conn.SERVICE_OPTS.setOmeroGroup(-1)
 
         # Process all images
+        n = args.partial
         for i, input_id in enumerate(args.id):
             print(f"Input ID [{i + 1}/{len(args.id)}] {input_id}")
             image_ids = get_image_ids(conn, input_id)
@@ -203,14 +210,22 @@ def main():
                 df = fibers.to_df(pixel_size=pixel_size, img_name=image_name)
                 df["Image ID"] = image_id
                 dfs.append(df)
+                print(
+                    f"Image [{j + 1}/{len(image_ids)}] {image_id} [{image_name}]: fibres={len(fibers)}"
+                )
+
+                # Save results to CSV
+                n -= 1
+                if n == 0:
+                    n = args.partial
+                    print(f"Saving results file: {fn}")
+                    pd.concat(dfs, ignore_index=True).to_csv(fn, index=False)
+
         print(f"Image processing time: {time.time() - start:.2f} seconds")
 
-    if dfs:
+    if n != args.partial:
         print(f"Saving results file: {fn}")
-        df = pd.concat(dfs, ignore_index=True)
-        df.to_csv(fn, index=False)
-    else:
-        print("No results to save.")
+        pd.concat(dfs, ignore_index=True).to_csv(fn, index=False)
 
 
 if __name__ == "__main__":
