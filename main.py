@@ -2,7 +2,6 @@
 """Analyse OMERO images using DNAi."""
 
 import argparse
-from webbrowser import get
 
 from dnafiber.model.models_zoo import MODELS_ZOO
 
